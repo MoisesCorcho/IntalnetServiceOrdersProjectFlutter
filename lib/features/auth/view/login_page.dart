@@ -1,3 +1,5 @@
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -14,22 +16,71 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _deviceNameController = TextEditingController(text: 'flutter_app');
 
   bool _obscurePassword = true;
+  String? _deviceName;
+  bool _isFetchingDeviceName = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveDeviceName();
+  }
+
+  Future<void> _resolveDeviceName() async {
+    const fallback = 'flutter_app';
+    final plugin = DeviceInfoPlugin();
+    String? resolvedName;
+
+    try {
+      if (kIsWeb) {
+        resolvedName = 'web_browser';
+      } else {
+        switch (defaultTargetPlatform) {
+          case TargetPlatform.android:
+            resolvedName = (await plugin.androidInfo).model;
+            break;
+          case TargetPlatform.iOS:
+            final info = await plugin.iosInfo;
+            resolvedName = info.name;
+            break;
+          case TargetPlatform.macOS:
+            resolvedName = (await plugin.macOsInfo).computerName;
+            break;
+          case TargetPlatform.windows:
+            resolvedName = (await plugin.windowsInfo).computerName;
+            break;
+          case TargetPlatform.linux:
+            resolvedName = (await plugin.linuxInfo).name;
+            break;
+          case TargetPlatform.fuchsia:
+            resolvedName = fallback;
+            break;
+        }
+      }
+    } catch (_) {
+      resolvedName = fallback;
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _deviceName =
+          (resolvedName == null || resolvedName.trim().isEmpty) ? fallback : resolvedName.trim();
+      _isFetchingDeviceName = false;
+    });
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _deviceNameController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Iniciar sesión')),
       body: BlocListener<AuthBloc, AuthState>(
         listenWhen: (previous, current) =>
             previous.errorMessage != current.errorMessage &&
@@ -39,34 +90,74 @@ class _LoginPageState extends State<LoginPage> {
           messenger.hideCurrentSnackBar();
           messenger.showSnackBar(SnackBar(content: Text(state.errorMessage!)));
         },
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final maxWidth = constraints.maxWidth > 500
-                ? 400.0
-                : double.infinity;
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                Theme.of(context).colorScheme.surface,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final maxWidth = constraints.maxWidth > 520 ? 420.0 : double.infinity;
 
-            return Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: maxWidth),
-                  child: _LoginForm(
-                    formKey: _formKey,
-                    emailController: _emailController,
-                    passwordController: _passwordController,
-                    deviceNameController: _deviceNameController,
-                    obscurePassword: _obscurePassword,
-                    onTogglePasswordVisibility: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
-                    onSubmit: _onSubmit,
+              return Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: maxWidth),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Bienvenido',
+                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Inicia sesión para continuar',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                        const SizedBox(height: 24),
+                        Card(
+                          elevation: 0,
+                          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: _LoginForm(
+                              formKey: _formKey,
+                              emailController: _emailController,
+                              passwordController: _passwordController,
+                              obscurePassword: _obscurePassword,
+                              onTogglePasswordVisibility: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                              onSubmit: _onSubmit,
+                              deviceName: _deviceName,
+                              isFetchingDeviceName: _isFetchingDeviceName,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
@@ -79,9 +170,7 @@ class _LoginPageState extends State<LoginPage> {
 
     final email = _emailController.text.trim();
     final password = _passwordController.text;
-    final deviceName = _deviceNameController.text.trim().isEmpty
-        ? 'flutter_app'
-        : _deviceNameController.text.trim();
+    final deviceName = _deviceName ?? 'flutter_app';
 
     context.read<AuthBloc>().add(
       LoginSubmitted(email: email, password: password, deviceName: deviceName),
@@ -94,25 +183,47 @@ class _LoginForm extends StatelessWidget {
     required this.formKey,
     required this.emailController,
     required this.passwordController,
-    required this.deviceNameController,
     required this.obscurePassword,
     required this.onTogglePasswordVisibility,
     required this.onSubmit,
+    required this.deviceName,
+    required this.isFetchingDeviceName,
   });
 
   final GlobalKey<FormState> formKey;
   final TextEditingController emailController;
   final TextEditingController passwordController;
-  final TextEditingController deviceNameController;
   final bool obscurePassword;
   final VoidCallback onTogglePasswordVisibility;
   final VoidCallback onSubmit;
+  final String? deviceName;
+  final bool isFetchingDeviceName;
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, state) {
         final isSubmitting = state.status == AuthStatus.authenticating;
+        final theme = Theme.of(context);
+
+        InputDecoration baseDecoration(String label, {String? hint, Widget? suffixIcon}) {
+          return InputDecoration(
+            labelText: label,
+            hintText: hint,
+            suffixIcon: suffixIcon,
+            filled: true,
+            fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.25),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.4), width: 1.4),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          );
+        }
 
         return Form(
           key: formKey,
@@ -121,10 +232,7 @@ class _LoginForm extends StatelessWidget {
             children: [
               TextFormField(
                 controller: emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Correo electrónico',
-                  hintText: 'tu@correo.com',
-                ),
+                decoration: baseDecoration('Correo electrónico', hint: 'tu@correo.com'),
                 keyboardType: TextInputType.emailAddress,
                 autofillHints: const [
                   AutofillHints.username,
@@ -144,8 +252,8 @@ class _LoginForm extends StatelessWidget {
               const SizedBox(height: 16),
               TextFormField(
                 controller: passwordController,
-                decoration: InputDecoration(
-                  labelText: 'Contraseña',
+                decoration: baseDecoration(
+                  'Contraseña',
                   suffixIcon: IconButton(
                     icon: Icon(
                       obscurePassword ? Icons.visibility_off : Icons.visibility,
@@ -163,22 +271,36 @@ class _LoginForm extends StatelessWidget {
                 },
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: deviceNameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nombre del dispositivo',
-                  helperText: 'Se utiliza para identificar el token.',
-                ),
-                textCapitalization: TextCapitalization.none,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Ingresa un nombre para el dispositivo.';
-                  }
-                  if (value.trim().length > 255) {
-                    return 'El nombre del dispositivo no puede superar los 255 caracteres.';
-                  }
-                  return null;
-                },
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                child: isFetchingDeviceName
+                    ? Row(
+                        key: const ValueKey('loading-device'),
+                        children: [
+                          SizedBox(
+                            height: 16,
+                            width: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation(theme.colorScheme.primary),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Identificando dispositivo…',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      )
+                    : Text(
+                        'Dispositivo detectado: ${deviceName ?? 'flutter_app'}',
+                        key: const ValueKey('device-name'),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
               ),
               const SizedBox(height: 24),
               FilledButton(
