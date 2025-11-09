@@ -62,46 +62,67 @@ class _ServiceOrderDetailView extends StatelessWidget {
             return const Center(child: Text('No se pudo cargar la orden.'));
           }
 
+          final colors = Theme.of(context).colorScheme;
+
           return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    _InfoRow(label: 'Título', value: order.title),
-                    _InfoRow(label: 'Estado', value: order.stateLabel),
-                    _InfoRow(
-                      label: 'Número de orden',
-                      value: order.orderNumber,
-                    ),
-                    _InfoRow(label: 'Descripción', value: order.description),
-                    _InfoRow(
-                      label: 'Entrada',
-                      value: _formatDate(order.checkInDate),
-                    ),
-                    _InfoRow(
-                      label: 'Programada',
-                      value: _formatDate(order.scheduledAt),
-                    ),
-                    _InfoRow(
-                      label: 'Completada',
-                      value: _formatDate(order.completedAt),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Cliente',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    _InfoRow(label: 'Nombre', value: order.customerName),
-                    _InfoRow(label: 'Teléfono', value: order.customerPhone),
-                    _InfoRow(label: 'Dirección', value: order.customerAddress),
-                  ],
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _HeaderCard(order: order),
+                      const SizedBox(height: 24),
+                      _LabeledSection(
+                        title: 'Resumen',
+                        children: [
+                          _InfoRow(
+                            label: 'Número de orden',
+                            value: order.orderNumber,
+                          ),
+                          _InfoRow(
+                            label: 'Descripción',
+                            value: order.description,
+                          ),
+                          _InfoRow(
+                            label: 'Entrada',
+                            value: _formatDate(order.checkInDate),
+                          ),
+                          _InfoRow(
+                            label: 'Programada',
+                            value: _formatDate(order.scheduledAt),
+                          ),
+                          _InfoRow(
+                            label: 'Completada',
+                            value: _formatDate(order.completedAt),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      _LabeledSection(
+                        title: 'Cliente',
+                        children: [
+                          _InfoRow(label: 'Nombre', value: order.customerName),
+                          _InfoRow(
+                            label: 'Teléfono',
+                            value: order.customerPhone,
+                          ),
+                          _InfoRow(
+                            label: 'Dirección',
+                            value: order.customerAddress,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
               SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
+                child: Container(
+                  color: colors.surface.withValues(alpha: 0.94),
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
                   child: SizedBox(
                     width: double.infinity,
                     child: FilledButton(
@@ -162,24 +183,278 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final valueText = value?.trim().isNotEmpty == true ? value!.trim() : '—';
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            flex: 2,
+          SizedBox(
+            width: 116,
             child: Text(
               label,
-              style: const TextStyle(fontWeight: FontWeight.w600),
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           const SizedBox(width: 12),
-          Expanded(
-            flex: 3,
-            child: Text(value?.isNotEmpty == true ? value! : '—'),
+          Expanded(child: Text(valueText, style: theme.textTheme.bodyMedium)),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeaderCard extends StatelessWidget {
+  const _HeaderCard({required this.order});
+
+  final ServiceOrder order;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final statusText = order.stateLabel ?? 'Sin estado';
+    final statusMeta = _statusMeta(colors, order.state, order.stateLabel);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surface.withValues(alpha: 0.97),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: colors.shadow.withValues(alpha: 0.05),
+            blurRadius: 26,
+            offset: const Offset(0, 18),
           ),
         ],
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.4)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    order.title ?? 'Orden #${order.id}',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                _StatusPill(
+                  label: statusText,
+                  background: statusMeta.background,
+                  foreground: statusMeta.foreground,
+                  icon: statusMeta.icon,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _InfoRow(label: 'Orden', value: order.orderNumber ?? '—'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  _StatusMeta _statusMeta(
+    ColorScheme colors,
+    String? state,
+    String? stateLabel,
+  ) {
+    final stateKey = (state ?? '').toLowerCase();
+    final fallbackKey = (stateLabel ?? '').toLowerCase();
+
+    _StatusMeta build(Color background, Color foreground, IconData icon) =>
+        _StatusMeta(background: background, foreground: foreground, icon: icon);
+
+    switch (stateKey) {
+      case 'received':
+        return build(
+          colors.tertiaryContainer.withValues(alpha: 0.45),
+          colors.onTertiaryContainer,
+          Icons.mark_email_read_outlined,
+        );
+      case 'on_the_way':
+        return build(
+          colors.secondaryContainer.withValues(alpha: 0.4),
+          colors.onSecondaryContainer,
+          Icons.local_shipping_outlined,
+        );
+      case 'at_destination':
+        return build(
+          colors.secondaryContainer.withValues(alpha: 0.35),
+          colors.onSecondaryContainer,
+          Icons.location_on_outlined,
+        );
+      case 'process_started':
+      case 'in_process':
+        return build(
+          colors.secondaryContainer.withValues(alpha: 0.45),
+          colors.onSecondaryContainer,
+          Icons.build_outlined,
+        );
+      case 'completed':
+        return build(
+          colors.primaryContainer.withValues(alpha: 0.45),
+          colors.onPrimaryContainer,
+          Icons.task_alt_outlined,
+        );
+      case 'closed':
+        return build(
+          colors.primaryContainer.withValues(alpha: 0.45),
+          colors.onPrimaryContainer,
+          Icons.lock_outline,
+        );
+    }
+
+    if (fallbackKey.contains('recib')) {
+      return build(
+        colors.tertiaryContainer.withValues(alpha: 0.45),
+        colors.onTertiaryContainer,
+        Icons.mark_email_read_outlined,
+      );
+    }
+    if (fallbackKey.contains('camino')) {
+      return build(
+        colors.secondaryContainer.withValues(alpha: 0.4),
+        colors.onSecondaryContainer,
+        Icons.local_shipping_outlined,
+      );
+    }
+    if (fallbackKey.contains('destino')) {
+      return build(
+        colors.secondaryContainer.withValues(alpha: 0.35),
+        colors.onSecondaryContainer,
+        Icons.location_on_outlined,
+      );
+    }
+    if (fallbackKey.contains('proceso')) {
+      return build(
+        colors.secondaryContainer.withValues(alpha: 0.45),
+        colors.onSecondaryContainer,
+        Icons.build_outlined,
+      );
+    }
+    if (fallbackKey.contains('complet')) {
+      return build(
+        colors.primaryContainer.withValues(alpha: 0.45),
+        colors.onPrimaryContainer,
+        Icons.task_alt_outlined,
+      );
+    }
+    if (fallbackKey.contains('cerr')) {
+      return build(
+        colors.primaryContainer.withValues(alpha: 0.45),
+        colors.onPrimaryContainer,
+        Icons.lock_outline,
+      );
+    }
+
+    return build(
+      colors.surfaceContainerHighest.withValues(alpha: 0.5),
+      colors.onSurfaceVariant,
+      Icons.list_alt_outlined,
+    );
+  }
+}
+
+class _LabeledSection extends StatelessWidget {
+  const _LabeledSection({required this.title, required this.children});
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface.withValues(alpha: 0.97),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusMeta {
+  const _StatusMeta({
+    required this.background,
+    required this.foreground,
+    required this.icon,
+  });
+
+  final Color background;
+  final Color foreground;
+  final IconData icon;
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({
+    required this.label,
+    required this.background,
+    required this.foreground,
+    required this.icon,
+  });
+
+  final String label;
+  final Color background;
+  final Color foreground;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: foreground),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: foreground,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
