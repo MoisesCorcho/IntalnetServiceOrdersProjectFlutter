@@ -8,12 +8,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:intalnet_service_orders_project/main.dart';
 import 'package:intalnet_service_orders_project/features/auth/data/auth_repository.dart';
+import 'package:intalnet_service_orders_project/features/service_orders/data/service_order_repository.dart';
+import 'package:intalnet_service_orders_project/main.dart';
 
 void main() {
   testWidgets('se muestra la pantalla de login por defecto', (tester) async {
-    await tester.pumpWidget(MyApp(authRepository: AuthRepository()));
+    final authRepository = AuthRepository();
+    final serviceOrderRepository = ServiceOrderRepository(
+      baseUrl: authRepository.baseUrl,
+    );
+
+    await tester.pumpWidget(
+      MyApp(
+        authRepository: authRepository,
+        serviceOrderRepository: serviceOrderRepository,
+      ),
+    );
 
     expect(find.text('Correo electrónico'), findsOneWidget);
     expect(find.text('Contraseña'), findsOneWidget);
