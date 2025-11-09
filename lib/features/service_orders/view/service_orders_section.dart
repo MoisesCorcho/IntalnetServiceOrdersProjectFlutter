@@ -99,12 +99,12 @@ class _ServiceOrdersList extends StatelessWidget {
           },
           child: ListView.separated(
             controller: controller,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
             itemCount: itemCount,
             itemBuilder: (context, index) {
               if (index >= state.orders.length) {
                 return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
+                  padding: EdgeInsets.symmetric(vertical: 16),
                   child: Center(
                     child: SizedBox(
                       width: 24,
@@ -139,7 +139,7 @@ class _ServiceOrdersList extends StatelessWidget {
                 },
               );
             },
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            separatorBuilder: (_, __) => const SizedBox(height: 16),
           ),
         );
       },
@@ -155,30 +155,82 @@ class _ServiceOrderTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        onTap: onTap,
-        title: Text(order.title ?? 'Orden #${order.id}'),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (order.stateLabel != null)
-              Text('Estado: ${order.stateLabel}', style: _mutedStyle),
-            if (order.customerName != null)
-              Text('Cliente: ${order.customerName}', style: _mutedStyle),
-            if (order.scheduledAt != null)
-              Text(
-                'Programada: ${_formatDate(order.scheduledAt)}',
-                style: _mutedStyle,
-              ),
-          ],
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final title = order.title ?? 'Orden #${order.id}';
+    final statusLabel = order.stateLabel ?? 'Sin estado';
+    final scheduledDate = _formatDate(order.scheduledAt);
+    final statusMeta = _statusMeta(colors);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surface.withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.28)),
+        boxShadow: [
+          BoxShadow(
+            color: colors.shadow.withValues(alpha: 0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(22),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _StatusPill(
+                  label: statusLabel,
+                  background: statusMeta.background,
+                  foreground: statusMeta.foreground,
+                  icon: statusMeta.icon,
+                ),
+                if (order.customerName != null || order.scheduledAt != null)
+                  const SizedBox(height: 16),
+                if (order.customerName != null)
+                  _InfoRow(
+                    icon: Icons.person_outline_rounded,
+                    label: order.customerName!,
+                  ),
+                if (order.customerName != null && order.scheduledAt != null)
+                  const SizedBox(height: 8),
+                if (order.scheduledAt != null)
+                  _InfoRow(
+                    icon: Icons.event_outlined,
+                    label: 'Programada: $scheduledDate',
+                  ),
+              ],
+            ),
+          ),
         ),
-        trailing: const Icon(Icons.chevron_right),
       ),
     );
   }
-
-  TextStyle get _mutedStyle => const TextStyle(fontSize: 12);
 
   String _formatDate(DateTime? dateTime) {
     if (dateTime == null) {
@@ -188,6 +240,190 @@ class _ServiceOrderTile extends StatelessWidget {
   }
 
   String _twoDigits(int value) => value.toString().padLeft(2, '0');
+
+  _StatusMeta _statusMeta(ColorScheme colors) {
+    final stateKey = (order.state ?? '').toLowerCase();
+    final labelKey = (order.stateLabel ?? '').toLowerCase();
+
+    _StatusMeta metaFor({
+      required Color background,
+      required Color foreground,
+      required IconData icon,
+    }) =>
+        _StatusMeta(
+          background: background,
+          foreground: foreground,
+          icon: icon,
+        );
+
+    switch (stateKey) {
+      case 'received':
+        return metaFor(
+          background: colors.tertiaryContainer.withValues(alpha: 0.45),
+          foreground: colors.onTertiaryContainer,
+          icon: Icons.mark_email_read_outlined,
+        );
+      case 'on_the_way':
+        return metaFor(
+          background: colors.secondaryContainer.withValues(alpha: 0.4),
+          foreground: colors.onSecondaryContainer,
+          icon: Icons.local_shipping_outlined,
+        );
+      case 'at_destination':
+        return metaFor(
+          background: colors.secondaryContainer.withValues(alpha: 0.35),
+          foreground: colors.onSecondaryContainer,
+          icon: Icons.location_on_outlined,
+        );
+      case 'process_started':
+      case 'in_process':
+        return metaFor(
+          background: colors.secondaryContainer.withValues(alpha: 0.45),
+          foreground: colors.onSecondaryContainer,
+          icon: Icons.build_outlined,
+        );
+      case 'completed':
+        return metaFor(
+          background: colors.primaryContainer.withValues(alpha: 0.45),
+          foreground: colors.onPrimaryContainer,
+          icon: Icons.task_alt_outlined,
+        );
+      case 'closed':
+        return metaFor(
+          background: colors.primaryContainer.withValues(alpha: 0.45),
+          foreground: colors.onPrimaryContainer,
+          icon: Icons.lock_outline,
+        );
+    }
+
+    if (labelKey.contains('recib')) {
+      return metaFor(
+        background: colors.tertiaryContainer.withValues(alpha: 0.45),
+        foreground: colors.onTertiaryContainer,
+        icon: Icons.mark_email_read_outlined,
+      );
+    }
+    if (labelKey.contains('camino')) {
+      return metaFor(
+        background: colors.secondaryContainer.withValues(alpha: 0.4),
+        foreground: colors.onSecondaryContainer,
+        icon: Icons.local_shipping_outlined,
+      );
+    }
+    if (labelKey.contains('destino')) {
+      return metaFor(
+        background: colors.secondaryContainer.withValues(alpha: 0.35),
+        foreground: colors.onSecondaryContainer,
+        icon: Icons.location_on_outlined,
+      );
+    }
+    if (labelKey.contains('proceso')) {
+      return metaFor(
+        background: colors.secondaryContainer.withValues(alpha: 0.45),
+        foreground: colors.onSecondaryContainer,
+        icon: Icons.build_outlined,
+      );
+    }
+    if (labelKey.contains('complet')) {
+      return metaFor(
+        background: colors.primaryContainer.withValues(alpha: 0.45),
+        foreground: colors.onPrimaryContainer,
+        icon: Icons.task_alt_outlined,
+      );
+    }
+    if (labelKey.contains('cerr')) {
+      return metaFor(
+        background: colors.primaryContainer.withValues(alpha: 0.45),
+        foreground: colors.onPrimaryContainer,
+        icon: Icons.lock_outline,
+      );
+    }
+
+    return metaFor(
+      background: colors.surfaceContainerHighest.withValues(alpha: 0.5),
+      foreground: colors.onSurfaceVariant,
+      icon: Icons.list_alt_outlined,
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({
+    required this.label,
+    required this.background,
+    required this.foreground,
+    required this.icon,
+  });
+
+  final String label;
+  final Color background;
+  final Color foreground;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: foreground),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: foreground,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Icon(icon, size: 18, color: colors.onSurfaceVariant),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatusMeta {
+  const _StatusMeta({
+    required this.background,
+    required this.foreground,
+    required this.icon,
+  });
+
+  final Color background;
+  final Color foreground;
+  final IconData icon;
 }
 
 class _ErrorView extends StatelessWidget {

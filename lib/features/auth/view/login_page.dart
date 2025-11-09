@@ -90,71 +90,73 @@ class _LoginPageState extends State<LoginPage> {
           messenger.hideCurrentSnackBar();
           messenger.showSnackBar(SnackBar(content: Text(state.errorMessage!)));
         },
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
-                Theme.of(context).colorScheme.surface,
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
+        child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
               final maxWidth = constraints.maxWidth > 520 ? 420.0 : double.infinity;
+              final colorScheme = Theme.of(context).colorScheme;
 
-              return Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: maxWidth),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Bienvenido',
-                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
+              return Stack(
+                children: [
+                  Positioned(
+                    left: -90,
+                    top: -70,
+                    child: _BlurredCircle(color: colorScheme.primary.withValues(alpha: 0.18)),
+                  ),
+                  Positioned(
+                    right: -70,
+                    bottom: -90,
+                    child: _BlurredCircle(color: colorScheme.secondary.withValues(alpha: 0.14)),
+                  ),
+                  Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: maxWidth),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _AuthHeader(),
+                            const SizedBox(height: 32),
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: colorScheme.surface.withValues(alpha: 0.92),
+                                borderRadius: BorderRadius.circular(24),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: colorScheme.shadow.withValues(alpha: 0.06),
+                                    blurRadius: 24,
+                                    offset: const Offset(0, 18),
+                                  ),
+                                ],
+                                border: Border.all(
+                                  color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+                                ),
                               ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Inicia sesión para continuar',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              child: Padding(
+                                padding: const EdgeInsets.all(28),
+                                child: _LoginForm(
+                                  formKey: _formKey,
+                                  emailController: _emailController,
+                                  passwordController: _passwordController,
+                                  obscurePassword: _obscurePassword,
+                                  onTogglePasswordVisibility: () {
+                                    setState(() {
+                                      _obscurePassword = !_obscurePassword;
+                                    });
+                                  },
+                                  onSubmit: _onSubmit,
+                                  deviceName: _deviceName,
+                                  isFetchingDeviceName: _isFetchingDeviceName,
+                                ),
                               ),
-                        ),
-                        const SizedBox(height: 24),
-                        Card(
-                          elevation: 0,
-                          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: _LoginForm(
-                              formKey: _formKey,
-                              emailController: _emailController,
-                              passwordController: _passwordController,
-                              obscurePassword: _obscurePassword,
-                              onTogglePasswordVisibility: () {
-                                setState(() {
-                                  _obscurePassword = !_obscurePassword;
-                                });
-                              },
-                              onSubmit: _onSubmit,
-                              deviceName: _deviceName,
-                              isFetchingDeviceName: _isFetchingDeviceName,
                             ),
-                          ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
+                ],
               );
             },
           ),
@@ -317,6 +319,62 @@ class _LoginForm extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _AuthHeader extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          height: 56,
+          width: 56,
+          decoration: BoxDecoration(
+            color: colorScheme.primary.withValues(alpha: 0.16),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Icon(
+            Icons.lock_outline_rounded,
+            color: colorScheme.primary,
+          ),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          'Iniciar sesión',
+          style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Ingresa tus credenciales para continuar.',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BlurredCircle extends StatelessWidget {
+  const _BlurredCircle({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 220,
+      width: 220,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+      ),
     );
   }
 }
