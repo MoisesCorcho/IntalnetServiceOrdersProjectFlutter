@@ -6,9 +6,22 @@ import 'package:flutter/foundation.dart';
 // Maneja los mensajes cuando la app está en segundo plano o terminada.
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
+  await _ensureFirebaseInitialized();
   if (kDebugMode) {
     print("Handling a background message: ${message.messageId}");
+  }
+}
+
+Future<void> _ensureFirebaseInitialized() async {
+  try {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp();
+    }
+  } catch (e) {
+    if (kDebugMode) {
+      print('Error initializing Firebase: $e');
+    }
+    rethrow;
   }
 }
 
@@ -17,8 +30,11 @@ class FcmService {
 
   // Inicializa el servicio, pide permisos y configura los listeners
   Future<void> initialize() async {
+    await _ensureFirebaseInitialized();
+
     // 1. Solicitar permisos (Crítico para iOS, buena práctica en Android 13+)
-    NotificationSettings settings = await _firebaseMessaging.requestPermission(
+    final NotificationSettings settings =
+        await _firebaseMessaging.requestPermission(
       alert: true,
       badge: true,
       sound: true,

@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'features/auth/bloc/auth_bloc.dart';
@@ -5,7 +6,10 @@ import 'features/auth/data/auth_repository.dart';
 import 'features/auth/view/auth_gate.dart';
 import 'features/service_orders/data/service_order_repository.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+
   final authRepository = AuthRepository();
   final serviceOrderRepository = ServiceOrderRepository(
     baseUrl: authRepository.baseUrl,
