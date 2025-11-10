@@ -1,25 +1,57 @@
 import 'dart:async';
 
 import 'package:equatable/equatable.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+// 1. Importar HydratedBloc
+import 'package:hydrated_bloc/hydrated_bloc.dart';
 
 import '../../../core/services/fcm_service.dart';
 import '../data/auth_repository.dart';
 import '../models/login_request.dart';
 import '../models/login_response.dart';
+// (ELIMINADA la importación de 'user.dart', ya no es necesaria)
 
 part 'auth_event.dart';
 part 'auth_state.dart';
 
-class AuthBloc extends Bloc<AuthEvent, AuthState> {
+// 2. Cambiar 'Bloc' por 'HydratedBloc'
+class AuthBloc extends HydratedBloc<AuthEvent, AuthState> {
   AuthBloc({required AuthRepository authRepository})
-    : _authRepository = authRepository,
-      super(const AuthState()) {
+      : _authRepository = authRepository,
+        // 3. El estado inicial se cargará desde el disco si existe
+        super(const AuthState(status: AuthStatus.unauthenticated)) {
     on<LoginSubmitted>(_onLoginSubmitted);
     on<LogoutRequested>(_onLogoutRequested);
   }
 
   final AuthRepository _authRepository;
+
+  // 4. Añadir los métodos de HydratedBloc
+  @override
+  AuthState? fromJson(Map<String, dynamic> json) {
+    try {
+      // Leemos el estado desde el JSON guardado usando el factory
+      return AuthState.fromJson(json);
+    } catch (_) {
+      // Si falla la lectura, empezamos de cero
+      return null;
+    }
+  }
+
+  @override
+  Map<String, dynamic>? toJson(AuthState state) {
+    // Solo guardamos estados "estables" (autenticado o no)
+    // No queremos guardar "authenticating" o "logoutInProgress"
+    if (state.status == AuthStatus.authenticated ||
+        state.status == AuthStatus.unauthenticated ||
+        state.status == AuthStatus.failure) {
+      return state.toJson();
+    }
+    // No guardar estados transitorios
+    return null;
+  }
+
+  // --- TU LÓGICA DE LOGIN/LOGOUT (SIN CAMBIOS) ---
+  // (Esta es la lógica que me enviaste en el primer archivo)
 
   Future<void> _onLoginSubmitted(
     LoginSubmitted event,
@@ -34,37 +66,30 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         deviceName: event.deviceName,
       );
 
-      // 1. Login en tu backend
       final LoginResponse response = await _authRepository.login(request);
 
-      // 2. Sincronizar token FCM (NUEVO BLOQUE)
-      // Esto se hace de forma "silenciosa", si falla no detiene el login
       try {
         final fcmService = FcmService();
-        // Inicializa y pide permisos si es necesario
         await fcmService.initialize();
-        // Obtiene el token actual
         final fcmToken = await fcmService.getToken();
 
         if (fcmToken != null) {
-          // Lo envía a tu backend usando el nuevo método del repositorio
           await _authRepository.syncFcmToken(
             fcmToken: fcmToken,
             deviceName: event.deviceName,
-            userAuthToken: response.token, // Token de Sanctum recién obtenido
+            userAuthToken: response.token,
           );
         }
       } catch (e) {
-        // Logueamos el error pero NO interrumpimos el flujo de login exitoso
         print('⚠️ Advertencia: No se pudo sincronizar FCM tras login: $e');
       }
 
-      // 3. Emitir estado autenticado
+      // ¡HydratedBloc guardará este estado automáticamente!
       emit(
         state.copyWith(
           status: AuthStatus.authenticated,
           token: response.token,
-          user: response.user,
+          user: response.user, // 'response.user' es Map<String, dynamic>?
           clearError: true,
         ),
       );
@@ -103,7 +128,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     if (!state.isAuthenticated || state.token == null) {
-      emit(const AuthState());
+      emit(const AuthState(status: AuthStatus.unauthenticated));
       return;
     }
 
@@ -111,9 +136,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     try {
       await _authRepository.logout(token: state.token!);
-      // Al hacer logout, FCM podría necesitar limpieza si quisieras,
-      // pero por lo general basta con que el backend invalide el token.
-      emit(const AuthState());
+
+      // ¡HydratedBloc guardará este estado (vacío)!
+      emit(const AuthState(status: AuthStatus.unauthenticated));
     } on AuthException catch (error) {
       emit(
         state.copyWith(status: AuthStatus.failure, errorMessage: error.message),

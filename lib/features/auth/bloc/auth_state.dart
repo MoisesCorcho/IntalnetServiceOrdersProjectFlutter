@@ -18,6 +18,7 @@ class AuthState extends Equatable {
 
   final AuthStatus status;
   final String? token;
+  // ¡Genial! Map<String, dynamic> es directamente serializable
   final Map<String, dynamic>? user;
   final String? errorMessage;
 
@@ -46,4 +47,31 @@ class AuthState extends Equatable {
 
   @override
   List<Object?> get props => [status, token, user, errorMessage];
+
+  // --- MÉTODOS AÑADIDOS PARA HYDRATED BLOC ---
+
+  factory AuthState.fromJson(Map<String, dynamic> json) {
+    return AuthState(
+      // Usamos 'byName' para convertir el String guardado de nuevo a Enum
+      status: AuthStatus.values.byName(
+          json['status'] ?? AuthStatus.unauthenticated.name),
+      token: json['token'] as String?,
+      // El mapa se lee directamente desde JSON
+      user: json['user'] != null
+          ? json['user'] as Map<String, dynamic>
+          : null,
+      errorMessage: json['errorMessage'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      // Usamos '.name' para guardar el Enum como un String
+      'status': status.name,
+      'token': token,
+      'user': user, // El mapa se guarda directamente
+      'errorMessage': errorMessage,
+    };
+  }
+  // --- FIN DE MÉTODOS AÑADIDOS ---
 }
