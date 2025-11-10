@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+// 1. IMPORTAMOS los BLoCs y modelos que vamos a USAR
 import '../../auth/bloc/auth_bloc.dart';
 import '../bloc/service_orders_bloc.dart';
 import '../models/service_order.dart';
 import 'service_order_detail_page.dart';
 
+// 2. Este widget ahora maneja solo el SCROLL
 class ServiceOrdersSection extends StatefulWidget {
   const ServiceOrdersSection({super.key});
 
@@ -20,6 +22,7 @@ class _ServiceOrdersSectionState extends State<ServiceOrdersSection> {
   void initState() {
     super.initState();
     _scrollController = ScrollController()..addListener(_onScroll);
+    // 3. Ya no cargamos datos aquí, el home se encarga
   }
 
   @override
@@ -29,6 +32,7 @@ class _ServiceOrdersSectionState extends State<ServiceOrdersSection> {
     super.dispose();
   }
 
+  // 4. El build AHORA SOLO DEVUELVE LA LISTA, (NO un Scaffold)
   @override
   Widget build(BuildContext context) {
     return _ServiceOrdersList(controller: _scrollController);
@@ -45,6 +49,10 @@ class _ServiceOrdersSectionState extends State<ServiceOrdersSection> {
   }
 }
 
+// 5. Todos los widgets de la lista y los tiles permanecen
+//    (No se eliminó nada de aquí para abajo)
+
+// --- WIDGET DE LA LISTA DE ÓRDENES ---
 class _ServiceOrdersList extends StatelessWidget {
   const _ServiceOrdersList({required this.controller});
 
@@ -54,34 +62,31 @@ class _ServiceOrdersList extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<ServiceOrdersBloc, ServiceOrdersState>(
       builder: (context, state) {
-        if (state.status == ServiceOrdersStatus.loading &&
-            state.orders.isEmpty) {
+        if (state.isLoading && state.orders.isEmpty) {
           return const Center(child: CircularProgressIndicator());
         }
 
         if (state.hasError && state.orders.isEmpty) {
           return _ErrorView(
-            message:
-                state.errorMessage ??
+            message: state.errorMessage ??
                 'No se pudieron cargar las órdenes de servicio.',
             onRetry: () {
               final bloc = context.read<ServiceOrdersBloc>();
-              if (bloc.state.token == null) {
-                return;
-              }
-              bloc.add(const ServiceOrdersRefreshed());
+              bloc.add(
+                  ServiceOrdersFilterChanged(status: bloc.state.statusFilter));
             },
           );
         }
 
         if (state.orders.isEmpty) {
+          // 6. Lógica de _EmptyView simplificada
+          //    (El título en el AppBar ya dice qué filtro está activo)
           return _EmptyView(
+            message: 'No hay órdenes para este filtro.',
             onRetry: () {
               final bloc = context.read<ServiceOrdersBloc>();
-              if (bloc.state.token == null) {
-                return;
-              }
-              bloc.add(const ServiceOrdersRefreshed());
+              bloc.add(
+                  ServiceOrdersFilterChanged(status: bloc.state.statusFilter));
             },
           );
         }
@@ -92,14 +97,16 @@ class _ServiceOrdersList extends StatelessWidget {
         return RefreshIndicator(
           onRefresh: () async {
             final bloc = context.read<ServiceOrdersBloc>();
-            bloc.add(const ServiceOrdersRefreshed());
+            bloc.add(
+                ServiceOrdersFilterChanged(status: bloc.state.statusFilter));
             await bloc.stream.firstWhere(
-              (updated) => updated.status != ServiceOrdersStatus.refreshing,
+              (updated) => !updated.isRefreshing,
             );
           },
           child: ListView.separated(
             controller: controller,
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+            // 7. Ajustamos el padding para que coincida con el horizontal del home
+            padding: const EdgeInsets.only(top: 20, bottom: 32),
             itemCount: itemCount,
             itemBuilder: (context, index) {
               if (index >= state.orders.length) {
@@ -147,6 +154,7 @@ class _ServiceOrdersList extends StatelessWidget {
   }
 }
 
+// --- WIDGET _ServiceOrderTile ---
 class _ServiceOrderTile extends StatelessWidget {
   const _ServiceOrderTile({required this.order, required this.onTap});
 
@@ -257,6 +265,18 @@ class _ServiceOrderTile extends StatelessWidget {
         );
 
     switch (stateKey) {
+      case 'created':
+        return metaFor(
+          background: colors.errorContainer.withValues(alpha: 0.6),
+          foreground: colors.onErrorContainer,
+          icon: Icons.notifications_active_outlined,
+        );
+      case 'assigned':
+        return metaFor(
+          background: colors.tertiaryContainer.withValues(alpha: 0.4),
+          foreground: colors.onTertiaryContainer,
+          icon: Icons.assignment_ind_outlined,
+        );
       case 'received':
         return metaFor(
           background: colors.tertiaryContainer.withValues(alpha: 0.45),
@@ -296,6 +316,13 @@ class _ServiceOrderTile extends StatelessWidget {
         );
     }
 
+    if (labelKey.contains('creada')) {
+      return metaFor(
+        background: colors.errorContainer.withValues(alpha: 0.6),
+        foreground: colors.onErrorContainer,
+        icon: Icons.notifications_active_outlined,
+      );
+    }
     if (labelKey.contains('recib')) {
       return metaFor(
         background: colors.tertiaryContainer.withValues(alpha: 0.45),
@@ -346,6 +373,8 @@ class _ServiceOrderTile extends StatelessWidget {
     );
   }
 }
+
+// --- OTROS WIDGETS AUXILIARES ---
 
 class _StatusPill extends StatelessWidget {
   const _StatusPill({
@@ -451,9 +480,10 @@ class _ErrorView extends StatelessWidget {
 }
 
 class _EmptyView extends StatelessWidget {
-  const _EmptyView({required this.onRetry});
+  const _EmptyView({required this.onRetry, this.message});
 
   final VoidCallback onRetry;
+  final String? message;
 
   @override
   Widget build(BuildContext context) {
@@ -463,8 +493,8 @@ class _EmptyView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'No hay órdenes asignadas.',
+            Text(
+              message ?? 'No hay órdenes asignadas.',
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),

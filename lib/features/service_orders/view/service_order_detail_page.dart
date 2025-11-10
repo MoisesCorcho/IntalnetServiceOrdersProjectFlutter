@@ -64,6 +64,21 @@ class _ServiceOrderDetailView extends StatelessWidget {
 
           final colors = Theme.of(context).colorScheme;
 
+          // --- LÓGICA DEL BOTÓN AÑADIDA ---
+          final String? stateKey = order.state?.toLowerCase();
+
+          // Regla 3: Si está completada o cerrada, no hay botón.
+          final isFinalState =
+              stateKey == 'completed' || stateKey == 'closed';
+
+          // Regla 1: Si es nueva, el texto es "Recibido".
+          final isNewState =
+              stateKey == 'created' || stateKey == 'assigned';
+
+          // Regla 2: Si no, el texto es "Avanzar estado".
+          final buttonText = isNewState ? 'Recibido' : 'Avanzar estado';
+          // --- FIN DE LÓGICA DEL BOTÓN ---
+
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -119,44 +134,53 @@ class _ServiceOrderDetailView extends StatelessWidget {
                   ),
                 ),
               ),
-              SafeArea(
-                child: Container(
-                  color: colors.surface.withValues(alpha: 0.94),
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed:
-                          state.status == ServiceOrderDetailStatus.advancing
-                          ? null
-                          : () async {
-                              final updated = await context
-                                  .read<ServiceOrderDetailCubit>()
-                                  .advanceState();
-                              if (updated != null && context.mounted) {
-                                context.read<ServiceOrdersBloc>().add(
-                                  ServiceOrderUpdated(order: updated),
-                                );
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Estado actualizado correctamente.',
-                                    ),
-                                  ),
-                                );
-                              }
-                            },
-                      child: state.status == ServiceOrderDetailStatus.advancing
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Avanzar estado'),
+              // --- INICIO DE MODIFICACIÓN DE BOTÓN ---
+              // Aplicamos la Regla 3:
+              // Solo mostrar el botón si el estado NO es final.
+              if (!isFinalState)
+                SafeArea(
+                  child: Container(
+                    color: colors.surface.withValues(alpha: 0.94),
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed:
+                            state.status == ServiceOrderDetailStatus.advancing
+                                ? null
+                                : () async {
+                                    final updated = await context
+                                        .read<ServiceOrderDetailCubit>()
+                                        .advanceState();
+                                    if (updated != null && context.mounted) {
+                                      context.read<ServiceOrdersBloc>().add(
+                                            ServiceOrderUpdated(order: updated),
+                                          );
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Estado actualizado correctamente.',
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  },
+                        child:
+                            state.status == ServiceOrderDetailStatus.advancing
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  )
+                                // Aplicamos Reglas 1 y 2:
+                                : Text(buttonText),
+                      ),
                     ),
                   ),
                 ),
-              ),
+              // --- FIN DE MODIFICACIÓN DE BOTÓN ---
             ],
           );
         },
@@ -277,7 +301,21 @@ class _HeaderCard extends StatelessWidget {
     _StatusMeta build(Color background, Color foreground, IconData icon) =>
         _StatusMeta(background: background, foreground: foreground, icon: icon);
 
+    // --- AÑADIDA LÓGICA PARA 'created' y 'assigned' ---
+    // (Copiada de service_orders_section.dart)
     switch (stateKey) {
+      case 'created':
+        return build(
+          colors.errorContainer.withValues(alpha: 0.6),
+          colors.onErrorContainer,
+          Icons.notifications_active_outlined,
+        );
+      case 'assigned':
+        return build(
+          colors.tertiaryContainer.withValues(alpha: 0.4),
+          colors.onTertiaryContainer,
+          Icons.assignment_ind_outlined,
+        );
       case 'received':
         return build(
           colors.tertiaryContainer.withValues(alpha: 0.45),
@@ -317,6 +355,13 @@ class _HeaderCard extends StatelessWidget {
         );
     }
 
+    if (fallbackKey.contains('creada')) {
+      return build(
+        colors.errorContainer.withValues(alpha: 0.6),
+        colors.onErrorContainer,
+        Icons.notifications_active_outlined,
+      );
+    }
     if (fallbackKey.contains('recib')) {
       return build(
         colors.tertiaryContainer.withValues(alpha: 0.45),
@@ -324,6 +369,7 @@ class _HeaderCard extends StatelessWidget {
         Icons.mark_email_read_outlined,
       );
     }
+    // ... (resto de fallbacks sin cambios) ...
     if (fallbackKey.contains('camino')) {
       return build(
         colors.secondaryContainer.withValues(alpha: 0.4),
@@ -448,10 +494,10 @@ class _StatusPill extends StatelessWidget {
             Text(
               label,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: foreground,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.2,
-              ),
+                    color: foreground,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
+                  ),
             ),
           ],
         ),

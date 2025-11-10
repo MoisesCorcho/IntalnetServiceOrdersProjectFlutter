@@ -37,7 +37,11 @@ class AuthenticatedHome extends StatelessWidget {
             key: ValueKey(token),
             create: (context) => ServiceOrdersBloc(
               repository: context.read<ServiceOrderRepository>(),
-            )..add(ServiceOrdersRequested(token: token)),
+            )
+              // 1. Solicitamos la carga inicial con el token
+              ..add(ServiceOrdersRequested(token: token))
+              // 2. Establecemos el filtro inicial en "Nuevas"
+              ..add(const ServiceOrdersFilterChanged(status: 'created')),
             child: _ServiceOrdersScreen(
               user: user,
               token: token,
@@ -66,9 +70,12 @@ class _ServiceOrdersScreen extends StatefulWidget {
 }
 
 class _ServiceOrdersScreenState extends State<_ServiceOrdersScreen> {
-  String? _selectedStatus;
+  // 3. Establecemos el estado inicial del filtro en 'created'
+  String? _selectedStatus = 'created';
 
+  // 4. Añadimos la nueva opción de filtro "Nuevas"
   static const List<_StatusOption> _statusOptions = [
+    _StatusOption('created', 'Nuevas', Icons.notifications_active_outlined),
     _StatusOption(null, 'Todas las órdenes', Icons.list_alt_outlined),
     _StatusOption('received', 'Recibido', Icons.mark_email_read_outlined),
     _StatusOption('on_the_way', 'En camino', Icons.local_shipping_outlined),
@@ -84,13 +91,8 @@ class _ServiceOrdersScreenState extends State<_ServiceOrdersScreen> {
     });
 
     final bloc = context.read<ServiceOrdersBloc>();
-    bloc.add(
-      ServiceOrdersRequested(
-        token: widget.token,
-        status: status,
-        perPage: bloc.state.perPage,
-      ),
-    );
+    // 5. Usamos el evento 'ServiceOrdersFilterChanged' que creamos
+    bloc.add(ServiceOrdersFilterChanged(status: status));
     Navigator.of(context).pop();
   }
 
@@ -101,8 +103,16 @@ class _ServiceOrdersScreenState extends State<_ServiceOrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Leemos el título del filtro seleccionado
+    final title = _statusOptions
+        .firstWhere(
+          (opt) => opt.value == _selectedStatus,
+          orElse: () => _statusOptions.first,
+        )
+        .label;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Servicio de Órdenes')),
+      appBar: AppBar(title: Text(title)),
       drawer: _OrdersDrawer(
         user: widget.user,
         selectedStatus: _selectedStatus,
@@ -110,8 +120,9 @@ class _ServiceOrdersScreenState extends State<_ServiceOrdersScreen> {
         onLogout: _onLogout,
         isLoggingOut: widget.isLoggingOut,
       ),
+      // 6. Mantenemos el padding, pero el hijo ahora es solo la lista
       body: const Padding(
-        padding: EdgeInsets.all(24),
+        padding: EdgeInsets.symmetric(horizontal: 16),
         child: ServiceOrdersSection(),
       ),
     );
@@ -136,12 +147,11 @@ class _OrdersDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final name =
-        (user?['full_name'] ??
-                user?['name'] ??
-                user?['first_name'] ??
-                user?['last_name'])
-            ?.toString();
+    final name = (user?['full_name'] ??
+            user?['name'] ??
+            user?['first_name'] ??
+            user?['last_name'])
+        ?.toString();
     final email = user?['email']?.toString() ?? '';
     final trimmed = (name != null && name.trim().isNotEmpty)
         ? name.trim()
