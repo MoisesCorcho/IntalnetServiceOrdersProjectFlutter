@@ -332,16 +332,12 @@ class _AuthHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          height: 56,
-          width: 56,
-          decoration: BoxDecoration(
-            color: colorScheme.primary.withValues(alpha: 0.16),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Icon(
-            Icons.lock_outline_rounded,
-            color: colorScheme.primary,
+        Center(
+          child: Image.asset(
+            'assets/images/intalnet_logo.png',
+            height: 96,
+            fit: BoxFit.contain,
+            semanticLabel: 'Intalnet Telecomunicaciones',
           ),
         ),
         const SizedBox(height: 24),
