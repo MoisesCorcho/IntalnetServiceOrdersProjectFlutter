@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "423588904111",
+    "project_id": "intalnet",
+    "storage_bucket": "intalnet.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:423588904111:android:c2d391b33e1045db80685a",
+        "android_client_info": {
+          "package_name": "com.company.appname"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyArUgbweg48vrPJoe9Rk5wl7Ln8k-UwWKk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

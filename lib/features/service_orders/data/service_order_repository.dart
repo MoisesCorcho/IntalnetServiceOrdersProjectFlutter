@@ -11,7 +11,7 @@ class ServiceOrderRepository {
     this.baseUrl = _defaultBaseUrl,
   }) : _httpClient = httpClient ?? http.Client();
 
-  static const String _defaultBaseUrl = 'http://10.0.2.2:8000/api/v1';
+  static const String _defaultBaseUrl = 'https://intalnetservicios.kaledmolina.com/api/v1';
 
   final http.Client _httpClient;
   final String baseUrl;

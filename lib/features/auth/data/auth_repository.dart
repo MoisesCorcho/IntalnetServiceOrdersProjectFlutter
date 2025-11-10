@@ -9,7 +9,7 @@ class AuthRepository {
   AuthRepository({http.Client? httpClient, this.baseUrl = _defaultBaseUrl})
     : _httpClient = httpClient ?? http.Client();
 
-  static const String _defaultBaseUrl = 'http://10.0.2.2:8000/api/v1';
+  static const String _defaultBaseUrl = 'https://intalnetservicios.kaledmolina.com/api/v1';
 
   final http.Client _httpClient;
   final String baseUrl;
@@ -51,6 +51,41 @@ class AuthRepository {
     }
 
     throw AuthException(_extractErrorMessage(response));
+  }
+
+  // NUEVO MÉTODO PARA SINCRONIZAR EL TOKEN FCM
+  Future<void> syncFcmToken({
+    required String fcmToken,
+    required String deviceName,
+    required String userAuthToken,
+  }) async {
+    final uri = Uri.parse('$baseUrl/fcm-tokens'); // Ajusta si tu ruta es diferente, ej: /v1/fcm-tokens
+
+    try {
+      final response = await _httpClient.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $userAuthToken',
+        },
+        body: jsonEncode({
+          'token': fcmToken,
+          'device_name': deviceName,
+        }),
+      );
+
+      if (!_isSuccess(response.statusCode)) {
+        // Puedes decidir si quieres lanzar una excepción aquí o solo loguear el error.
+        // Por ahora, solo imprimimos para debug, pero podrías lanzar AuthException.
+        print("❌ Error al sincronizar FCM Token: ${_extractErrorMessage(response)}");
+      } else {
+         print("✅ FCM Token sincronizado correctamente.");
+      }
+    } catch (e) {
+      print("❌ Excepción al sincronizar FCM Token: $e");
+      // Opcional: rethrow; si quieres manejarlo arriba.
+    }
   }
 
   bool _isSuccess(int statusCode) => statusCode >= 200 && statusCode < 300;
